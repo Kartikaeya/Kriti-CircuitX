@@ -122,5 +122,116 @@ for i in range(len(hull)):
         for l in range(len(hull[i][j])):
              for p in range(0,1):
                 cv2.circle(drawing, (hull[i][j][l][0],hull[i][j][l][1]) , 2,(0,255,255), -1)
+                
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Interpreting Circuit Structure ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+x1,y1 = np.shape(gate1)
+x2, y2 = np.shape(point_array)
+points = np.append(gate1,point_array, axis=0)
+circuit_matrix = np.zeros((x1,3))
+
+def give_coordinates(hull):
+    x, _, y = np.shape(hull)
+    hull_points = np.zeros((x,y))
+    for i in range(0,x):
+        for j in range(0,y):
+            hull_points[i][j] = hull[i][0][j]
+    return hull_points
+def detect_neighbouring_gate(cord, points,endpoints):
+    for i in range(0, np.shape(points)[0]):
+        if((points[i][0]<(cord[0] + 10) <points[i][2])  and (points[i][1]<cord[1]<points[i][3])): endpoints.append((cord[0], cord[1],points[i][4], 1, 0))
+        if((points[i][0]<(cord[0] - 10) <points[i][2])  and (points[i][1]<cord[1]<points[i][3])): endpoints.append((cord[0], cord[1],points[i][4], 0, 1))
+    return endpoints
+def remove_redundant_points(matrix):
+    return_matrix = matrix
+    for i in range(0, np.shape(return_matrix)[0]):
+        for j in range(i+1, np.shape(return_matrix)[0]):
+            if(return_matrix[i][2] == return_matrix[j][2] and return_matrix[i][3] == return_matrix[j][3] and return_matrix[i][4] == return_matrix[j][4]):
+                return_matrix[j] = np.array([0,0,0,0,0])
+    if (np.size(return_matrix)!= 0 ):return_matrix = return_matrix[~np.all(return_matrix == 0, axis=1)]
+    return return_matrix
+def detect_start_end_points(hull , points, img):
+    hull1 = np.array(hull)
+    hull_points = give_coordinates(hull1)
+    endpoints = []
+    for i in range(0, np.shape(hull_points)[0]):
+        endpoints = detect_neighbouring_gate(hull_points[i], points,endpoints)
+    endpoints = remove_redundant_points(np.array(endpoints))
+    for i in range(0, np.shape(endpoints)[0]):
+        cv2.circle(img, (int(endpoints[i][0]), int(endpoints[i][1])), 3, (255,0, 255),-1)
+    return endpoints, img
+def detect_points(hull, points,img):
+    endpoints = []
+    for i in range(0, np.shape(hull)[0]):
+        endpoints1, img = detect_start_end_points(hull[i], points, img)
+        endpoints.append(endpoints1)
+    cv2.imshow('start_end_points', img)
+    return endpoints
+endpoints = detect_points(hull, points, img1)
+
+gate1 = np.array(gate1)
+structure = np.zeros((np.shape(gate1)[0] + 1, 3))
+structure[:np.shape(gate1)[0], 2] = gate1[:, 4]
+structure[np.shape(gate1)[0]][2] = 111
+def gate_right(matrix):
+    return_matrix = np.array([])
+    for i in range(0, np.shape(matrix)[0]):
+        if (matrix[i][4] == 1):
+            return_matrix = np.append(return_matrix, matrix[i], axis = 0)
+    return return_matrix
+
+def gate_left(matrix):
+
+    return_matrix = np.array([])
+    for i in range(0, np.shape(matrix)[0]):
+        if (matrix[i][3] == 1):
+            return_matrix = np.append(return_matrix , matrix[i], axis = 0)
+    return return_matrix
+def update_structure(start_point,end_points, structure):
+    for i in range(0,np.size(end_points)):
+        for j in range(0, np.shape(structure)[0]):
+            if (structure[j][2] == end_points[i]):
+                if(structure[j][0] == 0): structure[j][0] = start_point
+                else : structure[j][1] = start_point
+    return structure
+def structure1(endpoints,structure):
+    start_point = np.array([])
+    end_points = np.array([])
+    for i in range(0, np.shape(endpoints)[0]):
+        if(np.size(endpoints[i]) == 0 ):
+            continue
+        else:
+           start_point =  gate_right(np.array(endpoints[i]))
+           end_points = gate_left(np.array(endpoints[i]))
+           if(np.size(end_points)==5): end_points = np.reshape(end_points, (1, 5))
+           elif(np.size(end_points)>5):
+                end_points = np.reshape(end_points, (int(np.size(end_points)/5), 5))
+        start_point = start_point[2]
+        end_points = end_points[:, 2]
+        structure = update_structure(start_point, end_points, structure)
+
+    return structure
+structure = structure1(endpoints, structure = structure)
+structure = np.array(structure).astype(int)
+rows = np.shape(structure)[0]
+structure[rows - 1, 0] = structure[rows - 2, 2]
+print(structure)
+truth_table = ttg(structure)
+print(truth_table)
+
+
+
+cv2.imshow('Contours and Convex Hull points', drawing)
+cv2.imshow('Detected Gates',img)
+cv2.imshow('original', img_original)
+
+cv2.waitKey(0)
+cv2.destroyAllWindows()
+
+
+              
+                
+                
+      
+                
 
 
